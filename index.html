@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Game Library</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="webviewcss.css?v=1.0.1">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+</head>
+<body>
+
+<div class="app-root" style="background: #000000;">
+
+    <!-- 🔍 TOP SEARCH BAR -->
+    <div class="top-bar">
+        <input id="searchBox" type="text" placeholder="Search game..."
+           style="
+            width: 100%;
+            box-sizing: border-box;
+            padding: 10px;
+            border-radius: 12px;
+            border: 1px solid #aaa;
+            font-size: 14px;
+           ">
+    </div>
+
+    <!-- 📦 CENTER CONTENT (SCROLLABLE) -->
+    <div class="content">
+
+        <!-- ❌ NOT FOUND SCREEN -->
+        <div id="notFound" style="
+            display:none;
+            height:100%;
+            align-items:center;
+            justify-content:center;
+            font-family: 'FixedsysExcelsior', monospace;
+            font-size: 22px;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            color: #00ff9c;
+            text-shadow: 0 0 8px rgba(0,255,156,0.6);
+        ">
+            NO GAME FOUND
+        </div>
+
+        <!-- ✅ GRID -->
+        <div id="grid" class="grid"></div>
+    </div>
+
+    <!-- 🔢 BOTTOM PAGINATION -->
+    <div class="bottom-bar">
+        <div id="pagination"></div>
+    </div>
+
+</div>
+
+<!-- ================= DETAIL DIALOG ================= -->
+<div id="detailOverlay" style="
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.6);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 999;
+">
+
+<div id="detailDialog" style="
+        width: 85%;
+        max-width: 420px;
+        background: linear-gradient(180deg, #222, #111);
+        border-radius: 20px;
+        padding: 16px;
+        box-shadow: 0 0 40px rgba(0,255,200,0.3);
+        color: #fff;
+        text-align: center;
+        position: relative;
+        border: 1px solid rgba(0,255,200,0.4);
+    ">
+
+
+        <!-- ❌ Close -->
+        <div onclick="closeDetail()" style="
+            position: absolute;
+            top: 10px;
+            right: 12px;
+            font-size: 22px;
+            cursor: pointer;
+            opacity: 0.7;
+        ">✕</div>
+
+        <img id="detailImage" src="" style="
+            width: 100%;
+            max-height: 240px;
+            object-fit: contain;
+            border-radius: 12px;
+            background: #000;
+        ">
+
+        <div id="detailTitle" style="
+            margin-top: 12px;
+            font-family: 'FixedsysExcelsior', monospace;
+            font-size: 18px;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+        ">TITLE</div>
+
+        <div id="detailExtra" style="
+            margin-top: 10px;
+            font-size: 13px;
+            opacity: 0.8;
+        ">
+            <!-- optional extra info -->
+        </div>
+
+        <div id="detailDownload" style="
+            display: block;
+            margin-top: 16px;
+            padding: 12px;
+            border-radius: 12px;
+            background: linear-gradient(135deg, #00ff9c, #00cfff);
+            color: #000;
+            font-family: 'FixedsysExcelsior', monospace;
+            font-size: 16px;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            text-decoration: none;
+            box-shadow: 0 0 15px rgba(0,255,200,0.6);
+        ">
+            ⬇ DOWNLOAD
+        </div>
+
+    </div>
+</div>
+
+<!-- ================= DOWNLOADING OVERLAY ================= -->
+<div id="downloadingOverlay" style="
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.85);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+">
+    <div style="
+        padding: 24px 28px;
+        border-radius: 20px;
+        background: linear-gradient(180deg, #222, #111);
+        border: 1px solid rgba(0,255,200,0.4);
+        box-shadow: 0 0 40px rgba(0,255,200,0.3);
+        text-align: center;
+        min-width: 220px;
+        position: relative; /* <<< QUAN TRỌNG */
+    ">
+        <!-- Close button -->
+        <div onclick="closeDownloading()" style="
+            position: absolute;
+            top: 10px;
+            right: 12px;
+            font-size: 22px;
+            cursor: pointer;
+            opacity: 0.7;
+            color: #a3a3a3;
+        " id="btnCloseDownload">✕</div>
+
+        <!-- Title -->
+        <div style="
+            font-size: 18px;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            color: #00ff9c;
+            margin-bottom: 12px;
+        ">
+            <span id="textStateDownload" style="font-family: 'FixedsysExcelsior', monospace;">
+                DOWNLOADING...
+            </span>
+        </div>
+
+        <!-- Status icon -->
+        <div id="status">
+            <div class="loader"></div>
+        </div>
+    </div>
+</div>
+
+
+</body>
+
+<script>
+
+// From Web to App
+function downloadGame(url) {
+    if (window.AndroidBridge) {
+        AndroidBridge.downloadGame(url);
+    }
+}
+
+// From App to Web
+window.onDownloadState = function(state) {
+    console.log("onDownloadState:", state);
+
+    if (state === "START") {
+        showDownloading("Downloading...", `<div class="loader"></div>`);
+        document.getElementById("btnCloseDownload").style.display = "none";
+        closeDetail();
+    } else if (state.startsWith("PROGRESS")) {
+        showDownloading(state.replace("PROGRESS:", "Downloading ") + "%");
+        document.getElementById("downloadingOverlay").addEventListener("click", function(e){
+            if (e.target === this) {}
+        })
+    } else if (state === "DONE") {
+        showDownloading("Downloaded!", `<div class="done-check"></div>`);
+        document.getElementById("btnCloseDownload").style.display = "block";
+        document.getElementById("downloadingOverlay").addEventListener("click", function(e){
+            if (e.target === this) {
+                closeDetail();
+                closeDownloading();
+            }
+        })
+    } else if (state === "ERROR") {
+        showDownloading("Download failed!", `<div class="error-cross"></div>`);
+        document.getElementById("btnCloseDownload").style.display = "block";
+         document.getElementById("downloadingOverlay").addEventListener("click", function(e){
+            if (e.target === this) {
+                closeDownloading();
+            }
+        })
+    }
+}
+
+function showDownloading(text, icon) {
+    const overlay = document.getElementById("downloadingOverlay");
+    overlay.style.display = "flex";
+
+    const label = document.getElementById("textStateDownload");
+    label.innerText = text;
+
+    document.getElementById("status").innerHTML = icon;
+}
+
+function closeDownloading() {
+    const btn = document.getElementById("detailDownload")
+    btn.addEventListener("click", function () {
+    });
+    document.getElementById("detailOverlay").style.display = "none"
+}
+
+function closeDownloading() {
+    const overlay = document.getElementById("downloadingOverlay");
+    overlay.style.display = "none";
+}
+
+
+let allItems = []
+let filteredItems = []
+let currentPage = 1
+const pageSize = 6
+
+fetch("data.json")
+    .then(res => res.json())
+    .then(data => {
+        allItems = data
+            .filter(item => item.download_link != null && item.download_link !== "")
+            .sort((a, b) => a.id - b.id);   // 👈 SORT Ở ĐÂY
+
+        filteredItems = allItems;
+        renderPage(1);
+        renderPagination();
+    });
+
+
+function renderPage(page) {
+    currentPage = page
+
+    const grid = document.getElementById("grid")
+    const notFound = document.getElementById("notFound")
+    const pagination = document.getElementById("pagination")
+
+    if (filteredItems.length === 0) {
+        grid.innerHTML = ""
+        grid.style.display = "none"
+        pagination.innerHTML = ""
+        notFound.style.display = "flex"
+        return
+    }
+
+    notFound.style.display = "none"
+    grid.style.display = "grid"
+    grid.innerHTML = ""
+
+    const start = (page - 1) * pageSize
+    const end = start + pageSize
+
+    const items = filteredItems.slice(start, end)
+
+    for (const item of items) {
+        const card = document.createElement("div")
+        card.className = "card"
+
+        card.innerHTML = `
+            <div class="card-image">
+                <img src="${item.thumbnail}" loading="lazy">
+            </div>
+            <div class="card-title">${item.title}</div>
+            <div style="
+                margin-top: 4px;
+                padding: 8px;
+                border-radius: 12px;
+                background: linear-gradient(135deg, #00ff9c, #00cfff);
+                color: #000;
+                font-family: 'FixedsysExcelsior', monospace;
+                font-size: 12px;
+                letter-spacing: 1px;
+                text-transform: uppercase;
+                box-shadow: 0 0 15px rgba(0,255,200,0.6);
+
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                text-align: center;
+            ">
+                ⬇ DOWNLOAD
+            </div>
+
+        `
+
+        card.onclick = () => {
+            openDetail(item)
+        }
+
+        grid.appendChild(card)
+    }
+}
+
+/* ================= DETAIL POPUP ================= */
+function openDetail(item) {
+    document.getElementById("detailImage").src = item.thumbnail
+    document.getElementById("detailTitle").innerText = item.title
+
+    // show extra info
+    let extra = []
+    if (item.platform) extra.push("Platform: " + item.platform)
+    if (item.version) extra.push("Version: " + item.version)
+
+    document.getElementById("detailExtra").innerText = extra.join(" • ")
+
+    // setup download button
+    const btn = document.getElementById("detailDownload")
+    btn.onclick = function () {
+        if (window.AndroidBridge) {
+            AndroidBridge.downloadGame(item.download_link);
+        }
+    };
+
+    if (item.download_link) {
+        btn.href = item.download_link
+        btn.style.display = "block"
+    } else if (item.link) {
+        btn.href = item.link
+        btn.style.display = "block"
+    } else {
+        btn.style.display = "none"
+    }
+
+    document.getElementById("detailOverlay").style.display = "flex"
+}
+
+
+function closeDetail() {
+    const btn = document.getElementById("detailDownload")
+    btn.addEventListener("click", function () {
+    });
+    document.getElementById("detailOverlay").style.display = "none"
+}
+
+// click ra ngoài để đóng
+document.getElementById("detailOverlay").addEventListener("click", function(e){
+    if (e.target === this) closeDetail()
+})
+
+/* ===== SMART PAGINATION ===== */
+function renderPagination() {
+    const p = document.getElementById("pagination")
+    p.innerHTML = ""
+
+    if (filteredItems.length === 0) return
+
+    const totalPages = Math.ceil(filteredItems.length / pageSize)
+    if (totalPages <= 1) return
+
+    function addButton(label, page, disabled = false, active = false) {
+        const btn = document.createElement("button")
+        btn.innerText = label
+        btn.style.margin = "2px"
+        if(label != "<" && label != ">") btn.style.padding = "4px 4px";
+        else btn.style.padding = "4px 8px";
+        btn.style.borderRadius = "6px"
+        btn.style.border = "1px solid #999"
+        btn.style.cursor = "pointer"
+
+        if (active) {
+            btn.style.background = "#333"
+            btn.style.color = "white"
+        }
+
+        if (disabled) {
+            btn.disabled = true
+            btn.style.opacity = "0.4"
+        } else {
+            btn.onclick = () => goToPage(page)
+        }
+
+        p.appendChild(btn)
+    }
+
+    addButton("<", currentPage - 1, currentPage === 1)
+    addButton("1", 1, false, currentPage === 1)
+
+    let start = Math.max(2, currentPage - 1)
+    let end = Math.min(totalPages - 1, currentPage + 1)
+
+    if (start > 2) {
+        const dots = document.createElement("span")
+        dots.innerText = "..."
+        dots.style.margin = "0 6px"
+        p.appendChild(dots)
+    }
+
+    for (let i = start; i <= end; i++) {
+        addButton(i, i, false, currentPage === i)
+    }
+
+    if (end < totalPages - 1) {
+        const dots = document.createElement("span")
+        dots.innerText = "..."
+        dots.style.margin = "0 6px"
+        p.appendChild(dots)
+    }
+
+    if (totalPages > 1) {
+        addButton(totalPages, totalPages, false, currentPage === totalPages)
+    }
+
+    addButton(">", currentPage + 1, currentPage === totalPages)
+}
+
+/* ===== CHANGE PAGE ===== */
+function goToPage(page) {
+    const totalPages = Math.ceil(filteredItems.length / pageSize)
+    if (page < 1 || page > totalPages) return
+    renderPage(page)
+    renderPagination()
+    document.querySelector(".content").scrollTop = 0
+}
+
+/* ===== SEARCH ===== */
+const searchBox = document.getElementById("searchBox")
+
+searchBox.addEventListener("input", function() {
+    const keyword = this.value.trim().toLowerCase()
+
+    if (!keyword) {
+        filteredItems = allItems
+    } else {
+        filteredItems = allItems.filter(item =>
+            item.title.toLowerCase().includes(keyword)
+        )
+    }
+
+    currentPage = 1
+    renderPage(1)
+    renderPagination()
+})
+
+
+</script>
+
+</body>
+</html>
