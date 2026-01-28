@@ -196,6 +196,12 @@ function downloadGame(url) {
     }
 }
 
+function showNotify(jsonData) {
+    if (window.AndroidBridge) {
+        AndroidBridge.showNotify(jsonData);
+    }
+}
+
 // From App to Web
 window.onDownloadState = function(state) {
     console.log("onDownloadState:", state);
@@ -326,7 +332,8 @@ function renderPage(page) {
         `
 
         card.onclick = () => {
-            openDetail(item)
+            showNotify(JSON.stringify(item))
+            // openDetail(item)
         }
 
         grid.appendChild(card)
@@ -366,6 +373,10 @@ function openDetail(item) {
     document.getElementById("detailOverlay").style.display = "flex"
 }
 
+window.openToDownLoad = function(jsonData) {
+    const item = JSON.parse(jsonData);
+    openDetail(item);
+}
 
 function closeDetail() {
     const btn = document.getElementById("detailDownload")
